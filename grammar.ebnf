@@ -1,0 +1,26 @@
+programa = { declaracao } ;
+
+declaracao = atribuicao | condicional | loop | comando ;
+
+atribuicao = "var" identificador "=" expressao ";" ;
+
+condicional = "if" "(" expressao ")" bloco 
+            [ "else" bloco ] ;
+
+loop = "while" "(" expressao ")" bloco ;
+
+bloco = "{" { declaracao } "}" ;
+
+comando = subir | descer | frente | tras | pousar | girar;
+subir   = "subir" "(" numero ")" ";" ;
+descer  = "descer" "(" numero ")" ";" ;
+frente  = "frente" "(" numero ")" ";" ;
+tras    = "tras" "(" numero ")" ";" ;
+pousar  = "pousar" "(" ")" ";" ;
+girar   = "girar" "(" numero ")" ";" ;
+
+expressao    = termo { operador termo } ;
+operador     = "+" | "-" | "*" | "/" | ">" | "<" | "==" ;
+termo        = numero | identificador ;
+identificador= letra { letra | digito } ;
+numero       = digito { digito } ;
