@@ -11,15 +11,21 @@ Essa é a primeira parte do projeto (entrega de 18/09).
 Linguagem foi estruturada no grammar.ebnf
 
 ## Exemplo
-// Drone desce quando estiver com pouca bateria, para evitar o risco de quedas.
- var bateria = 25;
- while (bateria > 0) {
-     subir(5);
-     girar(90);
-     subir(10);
-     girar(90);
-     bateria = bateria - 5;
-     if (bateria <= 20){
-       pousar();
-     }
- }
+
+```pilotdrone
+// Drone desce quando estiver com pouca bateria,
+// para evitar o risco de quedas.
+
+var bateria = 25;
+
+while (bateria > 0) {
+    subir(5);
+    girar(90);
+    subir(10);
+    girar(90);
+    bateria = bateria - 5;
+    if (bateria <= 20){
+        pousar();
+    }
+}
+
