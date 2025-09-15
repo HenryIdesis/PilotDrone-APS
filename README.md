@@ -13,8 +13,7 @@ Linguagem foi estruturada no grammar.ebnf
 ## Exemplo
 
 ```pilotdrone
-// Drone desce quando estiver com pouca bateria,
-// para evitar o risco de quedas.
+// Drone desce quando estiver com pouca bateria para evitar o risco de quedas.
 
 var bateria = 25;
 
