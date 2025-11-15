@@ -36,7 +36,7 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 ";"             { return PONTOEVIRG; }
 "="             { return ATRIB; }
 
-{DIGITO}+       { return NUM; }
+{DIGITO}+       { yylval = atoi(yytext); return NUM; }
 {ID}            { return ID; }
 [ \t\r\n]+      ;
 .               ;

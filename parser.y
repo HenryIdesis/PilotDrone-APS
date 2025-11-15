@@ -1,10 +1,11 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
-void yyerror(const char *s);
 int yylex(void);
+void yyerror(const char *s);
+
+FILE *saida;
 %}
 
 %token VAR IF ELSE WHILE
@@ -13,16 +14,18 @@ int yylex(void);
 %token ABREPAR FECHAPAR ABRECH FECHACH PONTOEVIRG ATRIB
 %token NUM ID
 
-%left '+' '-'
-%left '*' '/'
+%left MAIS MENOS
+%left MULT DIV
 
 %start programa
 
 %%
 
-programa:
-      /* vazio */
-    | programa declaracao
+programa
+    : declaracoes
+      {
+          fprintf(saida, "HALT\n");
+      }
     ;
 
 declaracao:
@@ -54,13 +57,19 @@ declaracoes:
     | declaracoes declaracao
     ;
 
-comando:
-      SUBIR ABREPAR NUM FECHAPAR PONTOEVIRG
+comando
+    : SUBIR ABREPAR NUM FECHAPAR PONTOEVIRG
+        { fprintf(saida, "ASC %d\n", $3); }
     | DESCER ABREPAR NUM FECHAPAR PONTOEVIRG
+        { fprintf(saida, "DESC %d\n", $3); }
     | FRENTE ABREPAR NUM FECHAPAR PONTOEVIRG
+        { fprintf(saida, "FWD %d\n", $3); }
     | TRAS ABREPAR NUM FECHAPAR PONTOEVIRG
-    | POUSAR ABREPAR FECHAPAR PONTOEVIRG
+        { fprintf(saida, "BACK %d\n", $3); }
     | GIRAR ABREPAR NUM FECHAPAR PONTOEVIRG
+        { fprintf(saida, "ROT %d\n", $3); }
+    | POUSAR ABREPAR FECHAPAR PONTOEVIRG
+        { fprintf(saida, "LAND\n"); }
     ;
 
 expressao:
@@ -79,13 +88,20 @@ termo:
 
 %%
 
-void yyerror(const char *s) {
-    fprintf(stderr, "Erro de sintaxe: %s\n", s);
+int main(void) {
+    saida = fopen("program.dvm", "w");
+    if (!saida) {
+        perror("erro abrindo program.dvm");
+        return 1;
+    }
+
+    if (yyparse() == 0) {
+      printf("compilou\n");
+    }
+    fclose(saida);
+    return 0;
 }
 
-int main(void) {
-    printf("🚁 Iniciando análise do programa de drone...\n");
-    yyparse();
-    printf("✅ Análise concluída com sucesso.\n");
-    return 0;
+void yyerror(const char *s) {
+    fprintf(stderr, "Erro de sintaxe: %s\n", s);
 }

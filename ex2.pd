@@ -1,0 +1,8 @@
+subir(10);
+girar(90);
+subir(10);
+girar(90);
+subir(10);
+girar(90);
+subir(10);
+pousar();
