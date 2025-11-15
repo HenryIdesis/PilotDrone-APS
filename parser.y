@@ -4,8 +4,17 @@
 
 int yylex(void);
 void yyerror(const char *s);
-
 FILE *saida;
+
+static int lbl_count = 0;
+static int novo_label(void) {
+    return lbl_count++;
+}
+
+/* pilha de labels para while aninhado */
+static int lbl_ini[64];
+static int lbl_fim[64];
+static int topo_loop = -1;
 %}
 
 %token VAR IF ELSE WHILE
@@ -16,6 +25,7 @@ FILE *saida;
 
 %left MAIS MENOS
 %left MULT DIV
+%left MAIOR MENOR IGUAL
 
 %start programa
 
@@ -28,62 +38,88 @@ programa
       }
     ;
 
-declaracao:
-      atribuicao
+declaracoes
+    : /* vazio */
+    | declaracoes declaracao
+    ;
+
+declaracao
+    : atribuicao
     | condicional
     | loop
     | comando
     ;
 
 atribuicao:
-      VAR ID ATRIB expressao PONTOEVIRG
+      VAR ID PONTOEVIRG
+    | VAR ID ATRIB expressao PONTOEVIRG
+    | ID ATRIB expressao PONTOEVIRG
     ;
 
-condicional:
-      IF ABREPAR expressao FECHAPAR bloco
+condicional
+    : IF ABREPAR expressao FECHAPAR bloco
     | IF ABREPAR expressao FECHAPAR bloco ELSE bloco
     ;
 
-loop:
-      WHILE ABREPAR expressao FECHAPAR bloco
+loop
+    : cabecalho_while bloco
+      {
+          fprintf(saida, "JMP L%d\n", lbl_ini[topo_loop]);
+          fprintf(saida, "L%d:\n", lbl_fim[topo_loop]);
+          topo_loop--;
+      }
     ;
 
-bloco:
-      ABRECH declaracoes FECHACH
+cabecalho_while
+    : WHILE ABREPAR
+      {
+          topo_loop++;
+          lbl_ini[topo_loop] = novo_label();
+          lbl_fim[topo_loop] = novo_label();
+          fprintf(saida, "L%d:\n", lbl_ini[topo_loop]);
+      }
+      expressao FECHAPAR
+      {
+          fprintf(saida, "JZ L%d\n", lbl_fim[topo_loop]);
+      }
     ;
 
-declaracoes:
-      /* vazio */
-    | declaracoes declaracao
+bloco
+    : ABRECH declaracoes FECHACH
     ;
 
 comando
-    : SUBIR ABREPAR NUM FECHAPAR PONTOEVIRG
-        { fprintf(saida, "ASC %d\n", $3); }
-    | DESCER ABREPAR NUM FECHAPAR PONTOEVIRG
-        { fprintf(saida, "DESC %d\n", $3); }
-    | FRENTE ABREPAR NUM FECHAPAR PONTOEVIRG
-        { fprintf(saida, "FWD %d\n", $3); }
-    | TRAS ABREPAR NUM FECHAPAR PONTOEVIRG
-        { fprintf(saida, "BACK %d\n", $3); }
-    | GIRAR ABREPAR NUM FECHAPAR PONTOEVIRG
-        { fprintf(saida, "ROT %d\n", $3); }
-    | POUSAR ABREPAR FECHAPAR PONTOEVIRG
+    : SUBIR   ABREPAR NUM FECHAPAR PONTOEVIRG
+        { fprintf(saida, "ASC %d\n",   $3); }
+    | DESCER  ABREPAR NUM FECHAPAR PONTOEVIRG
+        { fprintf(saida, "DESC %d\n",  $3); }
+    | FRENTE  ABREPAR NUM FECHAPAR PONTOEVIRG
+        { fprintf(saida, "FWD %d\n",   $3); }
+    | TRAS    ABREPAR NUM FECHAPAR PONTOEVIRG
+        { fprintf(saida, "BACK %d\n",  $3); }
+    | GIRAR   ABREPAR NUM FECHAPAR PONTOEVIRG
+        { fprintf(saida, "ROT %d\n",   $3); }
+    | POUSAR  ABREPAR FECHAPAR PONTOEVIRG
         { fprintf(saida, "LAND\n"); }
     ;
 
-expressao:
-      termo
-    | expressao operador termo
+expressao
+    : termo
+    | expressao MAIS  termo   { fprintf(saida, "ADD\n"); }
+    | expressao MENOS termo   { fprintf(saida, "SUB\n"); }
+    | expressao MULT  termo   { fprintf(saida, "MUL\n"); }
+    | expressao DIV   termo   { fprintf(saida, "DIV\n"); }
+    | expressao MAIOR termo   { fprintf(saida, "GT\n"); }
+    | expressao MENOR termo   { fprintf(saida, "LT\n"); }
+    | expressao IGUAL termo   { fprintf(saida, "EQ\n"); }
     ;
 
-operador:
-      MAIS | MENOS | MULT | DIV | MAIOR | MENOR | IGUAL
-    ;
-
-termo:
-      NUM
+termo
+    : NUM
+        { fprintf(saida, "PUSH %d\n", $1); }
     | ID
+        { fprintf(saida, "PUSH 0\n"); }
+    | ABREPAR expressao FECHAPAR
     ;
 
 %%
@@ -96,7 +132,7 @@ int main(void) {
     }
 
     if (yyparse() == 0) {
-      printf("compilou\n");
+        printf("compilou\n");
     }
     fclose(saida);
     return 0;

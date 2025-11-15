@@ -10,10 +10,16 @@ LEX_FILE = lexer.l
 YACC_FILE = parser.y
 
 # Regras
-all: $(TARGET)
+VM = vm
+VM_SRC = drone_vm.c
+
+all: $(TARGET) $(VM)
 
 $(TARGET): parser.tab.c lex.yy.c
 	$(CC) $(CFLAGS) parser.tab.c lex.yy.c -o $(TARGET)
+
+$(VM): $(VM_SRC)
+	$(CC) $(CFLAGS) $(VM_SRC) -o $(VM)
 
 parser.tab.c parser.tab.h: $(YACC_FILE)
 	$(YACC) $(YACC_FILE)
