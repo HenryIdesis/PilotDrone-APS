@@ -1,33 +1,16 @@
-# Compilador e ferramentas
-CC = gcc
-LEX = flex
-YACC = bison -d
-CFLAGS = -Wall
+all: drone vm
 
-# Nomes dos arquivos
-TARGET = drone
-LEX_FILE = lexer.l
-YACC_FILE = parser.y
+drone: parser.tab.c lex.yy.c
+	@gcc -Wall -g -o drone parser.tab.c lex.yy.c
 
-# Regras
-VM = vm
-VM_SRC = drone_vm.c
+parser.tab.c parser.tab.h: parser.y
+	@bison -d parser.y
 
-all: $(TARGET) $(VM)
+lex.yy.c: lexer.l parser.tab.h
+	@flex lexer.l
 
-$(TARGET): parser.tab.c lex.yy.c
-	$(CC) $(CFLAGS) parser.tab.c lex.yy.c -o $(TARGET)
-
-$(VM): $(VM_SRC)
-	$(CC) $(CFLAGS) $(VM_SRC) -o $(VM)
-
-parser.tab.c parser.tab.h: $(YACC_FILE)
-	$(YACC) $(YACC_FILE)
-
-lex.yy.c: $(LEX_FILE)
-	$(LEX) $(LEX_FILE)
+vm: drone_vm.c
+	@gcc -Wall -g -o vm drone_vm.c
 
 clean:
-	rm -f lex.yy.c parser.tab.c parser.tab.h $(TARGET)
-
-.PHONY: all clean
+	@rm -f drone vm lex.yy.c parser.tab.c parser.tab.h program.dvm

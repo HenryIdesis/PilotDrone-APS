@@ -1,12 +1,13 @@
-%option noyywrap nounput noinput
-
 %{
 #include "parser.tab.h"
+#include <stdlib.h>
+#include <string.h>
 %}
 
-DIGITO      [0-9]
-LETRA       [A-Za-z]
-ID          {LETRA}({LETRA}|{DIGITO})*
+%option noyywrap
+
+DIGITO  [0-9]
+ID      [a-zA-Z_][a-zA-Z0-9_]*
 
 %%
 
@@ -22,13 +23,18 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 "pousar"        { return POUSAR; }
 "girar"         { return GIRAR; }
 
+"altitude"      { return ALTITUDE; }
+"bateria"       { return BATERIA; }
+
 "=="            { return IGUAL; }
 ">"             { return MAIOR; }
 "<"             { return MENOR; }
+
 "+"             { return MAIS; }
 "-"             { return MENOS; }
 "*"             { return MULT; }
 "/"             { return DIV; }
+
 "("             { return ABREPAR; }
 ")"             { return FECHAPAR; }
 "{"             { return ABRECH; }
@@ -36,9 +42,22 @@ ID          {LETRA}({LETRA}|{DIGITO})*
 ";"             { return PONTOEVIRG; }
 "="             { return ATRIB; }
 
-{DIGITO}+       { yylval = atoi(yytext); return NUM; }
-{ID}            { return ID; }
-[ \t\r\n]+      ;
-.               ;
+{DIGITO}+       {
+                    yylval.ival = atoi(yytext);
+                    return NUM;
+                }
+
+{ID}            {
+                    yylval.sval = strdup(yytext);
+                    return ID;
+                }
+
+[ \t\r\n]+      { /* ignora espacos em branco */ }
+
+"//".*          { /* comentario de linha */ }
+
+.               {
+                    fprintf(stderr, "Caractere desconhecido: %s\n", yytext);
+                }
 
 %%

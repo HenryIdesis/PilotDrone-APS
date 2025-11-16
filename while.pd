@@ -1,0 +1,5 @@
+while (altitude < 50) {
+    subir(10);
+}
+
+pousar();

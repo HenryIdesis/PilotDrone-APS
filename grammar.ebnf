@@ -1,26 +1,52 @@
-programa = { declaracao } ;
+(* Linguagem PilotDrone em EBNF *)
 
-declaracao = atribuicao | condicional | loop | comando ;
+programa    = { comando } ;
 
-atribuicao = "var" identificador "=" expressao ";" ;
+comando     = declaracao
+            | atribuicao ";"
+            | comando_drone ";"
+            | comando_if
+            | comando_while ;
 
-condicional = "if" "(" expressao ")" bloco 
-            [ "else" bloco ] ;
+declaracao  = "var" ident [ "=" expressao ] ";" ;
 
-loop = "while" "(" expressao ")" bloco ;
+atribuicao  = ident "=" expressao ;
 
-bloco = "{" { declaracao } "}" ;
+comando_drone =
+              "subir"  "(" expressao ")"
+            | "descer" "(" expressao ")"
+            | "frente" "(" expressao ")"
+            | "tras"   "(" expressao ")"
+            | "girar"  "(" expressao ")"
+            | "pousar" "(" ")" ;
 
-comando = subir | descer | frente | tras | pousar | girar;
-subir   = "subir" "(" numero ")" ";" ;
-descer  = "descer" "(" numero ")" ";" ;
-frente  = "frente" "(" numero ")" ";" ;
-tras    = "tras" "(" numero ")" ";" ;
-pousar  = "pousar" "(" ")" ";" ;
-girar   = "girar" "(" numero ")" ";" ;
+comando_if  = "if" "(" expressao ")" bloco ;
 
-expressao    = termo { operador termo } ;
-operador     = "+" | "-" | "*" | "/" | ">" | "<" | "==" ;
-termo        = numero | identificador ;
-identificador= letra { letra | digito } ;
-numero       = digito { digito } ;
+comando_while = "while" "(" expressao ")" bloco ;
+
+bloco       = comando
+            | "{" { comando } "}" ;
+
+expressao   = expressao ( ">" | "<" | "==" ) expressao
+            | expressao ( "+" | "-" ) expressao
+            | expressao ( "*" | "/" ) expressao
+            | "(" expressao ")"
+            | numero
+            | ident
+            | "altitude"      (* sensor somente leitura *)
+            | "bateria" ;     (* sensor somente leitura *)
+
+ident       = letra { letra | digito | "_" } ;
+numero      = digito { digito } ;
+
+letra       = "A" | "B" | "C" | "D" | "E" | "F" | "G"
+            | "H" | "I" | "J" | "K" | "L" | "M" | "N"
+            | "O" | "P" | "Q" | "R" | "S" | "T" | "U"
+            | "V" | "W" | "X" | "Y" | "Z"
+            | "a" | "b" | "c" | "d" | "e" | "f" | "g"
+            | "h" | "i" | "j" | "k" | "l" | "m" | "n"
+            | "o" | "p" | "q" | "r" | "s" | "t" | "u"
+            | "v" | "w" | "x" | "y" | "z"
+            | "_" ;
+
+digito      = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;

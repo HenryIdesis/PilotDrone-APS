@@ -2,330 +2,363 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_PROG 256
-#define MAX_MEM 256
+#define MAX_CODE   2048
+#define MAX_STACK  1024
+#define MAX_LABELS 512
+#define MAX_MEM    256
+#define MAX_LINE   256
 
-#define OP_NOP       0
-#define OP_HALT      1
-#define OP_LOADI     2
-#define OP_LOAD      3
-#define OP_STORE     4
-#define OP_ADD       5
-#define OP_SUB       6
-#define OP_JMP       7
-#define OP_JZ        8
-#define OP_ASC       9
-#define OP_DESC     10
-#define OP_FWD      11
-#define OP_BACK     12
-#define OP_ROT      13
-#define OP_LAND     14
-#define OP_READ_BAT 15
-#define OP_READ_ALT 16
+typedef enum {
+    OP_NOP = 0,
+    OP_PUSH,
+    OP_LOAD,
+    OP_STORE,
+    OP_ADD,
+    OP_SUB,
+    OP_MUL,
+    OP_DIV,
+    OP_LT,
+    OP_GT,
+    OP_EQ,
+    OP_JMP,
+    OP_JZ,
+    OP_JNZ,
+    OP_UP,
+    OP_DOWN,
+    OP_FWD,
+    OP_BACK,
+    OP_TURN,
+    OP_LAND,
+    OP_SENSE_ALT,
+    OP_SENSE_BAT,
+    OP_LABEL,
+    OP_HALT
+} OpCode;
 
-struct Instrucao {
-    int op;
-    int a;
-    int b;
-};
+typedef struct {
+    OpCode op;
+    int arg;
+} Instr;
 
-void imprime_estado(int pc, int r0, int r1,
-                    int altitude, int bateria,
-                    int x, int y, int angulo) {
-    printf("pc=%d R0=%d R1=%d alt=%d bat=%d x=%d y=%d heading=%d\n",
-           pc, r0, r1, altitude, bateria, x, y, angulo);
+static Instr code[MAX_CODE];
+static int   ncode = 0;
+static int   label_addr[MAX_LABELS];
+
+static int stack_vm[MAX_STACK];
+static int sp = 0;
+
+static int mem[MAX_MEM];
+static int reg0 = 0;
+static int reg1 = 0;
+
+static int altitude = 0;
+static int bateria  = 100;
+static int pos_x    = 0;
+static int pos_y    = 0;
+
+static void stack_push(int v) {
+    if (sp >= MAX_STACK) {
+        fprintf(stderr, "Stack overflow\n");
+        exit(1);
+    }
+    stack_vm[sp++] = v;
 }
 
-int carrega_programa(const char *nome, struct Instrucao prog[], int max_prog) {
-    FILE *f = fopen(nome, "r");
-    char linha[128];
-    int n = 0;
-
-    if (f == NULL) {
-        perror("erro abrindo arquivo de programa");
-        return -1;
+static int stack_pop(void) {
+    if (sp <= 0) {
+        fprintf(stderr, "Stack underflow\n");
+        exit(1);
     }
-
-    while (fgets(linha, sizeof(linha), f) != NULL && n < max_prog) {
-        char op[32];
-        int a = 0;
-        int b = 0;
-        int q;
-
-        if (linha[0] == '#' || linha[0] == '\n') {
-            continue;
-        }
-
-        q = sscanf(linha, "%31s %d %d", op, &a, &b);
-        if (q <= 0) {
-            continue;
-        }
-
-        if (strcmp(op, "HALT") == 0) {
-            prog[n].op = OP_HALT;
-            prog[n].a = 0;
-            prog[n].b = 0;
-        } else if (strcmp(op, "NOP") == 0) {
-            prog[n].op = OP_NOP;
-            prog[n].a = 0;
-            prog[n].b = 0;
-        } else if (strcmp(op, "LOADI") == 0) {
-            prog[n].op = OP_LOADI;
-            prog[n].a = a;
-            prog[n].b = b;
-        } else if (strcmp(op, "LOAD") == 0) {
-            prog[n].op = OP_LOAD;
-            prog[n].a = a;
-            prog[n].b = b;
-        } else if (strcmp(op, "STORE") == 0) {
-            prog[n].op = OP_STORE;
-            prog[n].a = a;
-            prog[n].b = b;
-        } else if (strcmp(op, "ADD") == 0) {
-            prog[n].op = OP_ADD;
-            prog[n].a = a;
-            prog[n].b = b;
-        } else if (strcmp(op, "SUB") == 0) {
-            prog[n].op = OP_SUB;
-            prog[n].a = a;
-            prog[n].b = b;
-        } else if (strcmp(op, "JMP") == 0) {
-            prog[n].op = OP_JMP;
-            prog[n].a = a;
-            prog[n].b = 0;
-        } else if (strcmp(op, "JZ") == 0) {
-            prog[n].op = OP_JZ;
-            prog[n].a = a;
-            prog[n].b = b;
-        } else if (strcmp(op, "ASC") == 0) {
-            prog[n].op = OP_ASC;
-            prog[n].a = a;
-            prog[n].b = 0;
-        } else if (strcmp(op, "DESC") == 0) {
-            prog[n].op = OP_DESC;
-            prog[n].a = a;
-            prog[n].b = 0;
-        } else if (strcmp(op, "FWD") == 0) {
-            prog[n].op = OP_FWD;
-            prog[n].a = a;
-            prog[n].b = 0;
-        } else if (strcmp(op, "BACK") == 0) {
-            prog[n].op = OP_BACK;
-            prog[n].a = a;
-            prog[n].b = 0;
-        } else if (strcmp(op, "ROT") == 0) {
-            prog[n].op = OP_ROT;
-            prog[n].a = a;
-            prog[n].b = 0;
-        } else if (strcmp(op, "LAND") == 0) {
-            prog[n].op = OP_LAND;
-            prog[n].a = 0;
-            prog[n].b = 0;
-        } else if (strcmp(op, "READ_BAT") == 0) {
-            prog[n].op = OP_READ_BAT;
-            prog[n].a = a;
-            prog[n].b = 0;
-        } else if (strcmp(op, "READ_ALT") == 0) {
-            prog[n].op = OP_READ_ALT;
-            prog[n].a = a;
-            prog[n].b = 0;
-        } else {
-            continue;
-        }
-
-        n++;
-    }
-
-    fclose(f);
-    return n;
+    return stack_vm[--sp];
 }
 
-int main(int argc, char *argv[]) {
-    const char *arquivo = "program.dvm";
-    struct Instrucao prog[MAX_PROG];
-    int prog_tam;
-    int mem[MAX_MEM];
-    int i;
+static OpCode parse_op(const char *s) {
+    if (strcmp(s, "PUSH") == 0) return OP_PUSH;
+    if (strcmp(s, "LOAD") == 0) return OP_LOAD;
+    if (strcmp(s, "STORE") == 0) return OP_STORE;
+    if (strcmp(s, "ADD") == 0) return OP_ADD;
+    if (strcmp(s, "SUB") == 0) return OP_SUB;
+    if (strcmp(s, "MUL") == 0) return OP_MUL;
+    if (strcmp(s, "DIV") == 0) return OP_DIV;
+    if (strcmp(s, "LT") == 0) return OP_LT;
+    if (strcmp(s, "GT") == 0) return OP_GT;
+    if (strcmp(s, "EQ") == 0) return OP_EQ;
+    if (strcmp(s, "JMP") == 0) return OP_JMP;
+    if (strcmp(s, "JZ") == 0) return OP_JZ;
+    if (strcmp(s, "JNZ") == 0) return OP_JNZ;
+    if (strcmp(s, "UP") == 0) return OP_UP;
+    if (strcmp(s, "DOWN") == 0) return OP_DOWN;
+    if (strcmp(s, "FWD") == 0) return OP_FWD;
+    if (strcmp(s, "BACK") == 0) return OP_BACK;
+    if (strcmp(s, "TURN") == 0) return OP_TURN;
+    if (strcmp(s, "LAND") == 0) return OP_LAND;
+    if (strcmp(s, "SENSE_ALT") == 0) return OP_SENSE_ALT;
+    if (strcmp(s, "SENSE_BAT") == 0) return OP_SENSE_BAT;
+    if (strcmp(s, "LABEL") == 0) return OP_LABEL;
+    if (strcmp(s, "HALT") == 0) return OP_HALT;
+    return OP_NOP;
+}
 
-    int r0 = 0;
-    int r1 = 0;
+static void init_labels(void) {
+    for (int i = 0; i < MAX_LABELS; i++) {
+        label_addr[i] = -1;
+    }
+}
+
+static void load_program(FILE *f) {
+    char line[MAX_LINE];
+    init_labels();
+    ncode = 0;
+
+    while (fgets(line, sizeof(line), f)) {
+        char *p = line;
+
+        while (*p == ' ' || *p == '\t') p++;
+        if (*p == '\0' || *p == '\n') continue;
+        if (*p == '#' || (p[0] == '/' && p[1] == '/')) continue;
+
+        char opstr[32];
+        int arg = 0;
+        int n = sscanf(p, "%31s %d", opstr, &arg);
+        if (n <= 0) continue;
+
+        OpCode op = parse_op(opstr);
+        if (op == OP_NOP) {
+            fprintf(stderr, "Instrucao desconhecida: %s\n", opstr);
+            exit(1);
+        }
+
+        if (ncode >= MAX_CODE) {
+            fprintf(stderr, "Programa muito grande\n");
+            exit(1);
+        }
+
+        code[ncode].op  = op;
+        code[ncode].arg = (n >= 2) ? arg : 0;
+
+        if (op == OP_LABEL) {
+            int id = code[ncode].arg;
+            if (id < 0 || id >= MAX_LABELS) {
+                fprintf(stderr, "Label fora do limite: %d\n", id);
+                exit(1);
+            }
+            label_addr[id] = ncode;
+        }
+
+        ncode++;
+    }
+}
+
+static void exec_program(void) {
     int pc = 0;
-    int rodando = 1;
+    while (pc < ncode) {
+        Instr in = code[pc];
+        switch (in.op) {
+            case OP_PUSH: {
+                stack_push(in.arg);
+                pc++;
+                break;
+            }
+            case OP_LOAD: {
+                int addr = in.arg;
+                if (addr < 0 || addr >= MAX_MEM) {
+                    fprintf(stderr, "Endereco invalido em LOAD: %d\n", addr);
+                    exit(1);
+                }
+                stack_push(mem[addr]);
+                pc++;
+                break;
+            }
+            case OP_STORE: {
+                int addr = in.arg;
+                if (addr < 0 || addr >= MAX_MEM) {
+                    fprintf(stderr, "Endereco invalido em STORE: %d\n", addr);
+                    exit(1);
+                }
+                int v = stack_pop();
+                mem[addr] = v;
+                pc++;
+                break;
+            }
+            case OP_ADD: {
+                int b = stack_pop();
+                int a = stack_pop();
+                stack_push(a + b);
+                pc++;
+                break;
+            }
+            case OP_SUB: {
+                int b = stack_pop();
+                int a = stack_pop();
+                stack_push(a - b);
+                pc++;
+                break;
+            }
+            case OP_MUL: {
+                int b = stack_pop();
+                int a = stack_pop();
+                stack_push(a * b);
+                pc++;
+                break;
+            }
+            case OP_DIV: {
+                int b = stack_pop();
+                int a = stack_pop();
+                if (b == 0) {
+                    fprintf(stderr, "Divisao por zero\n");
+                    exit(1);
+                }
+                stack_push(a / b);
+                pc++;
+                break;
+            }
+            case OP_LT: {
+                int b = stack_pop();
+                int a = stack_pop();
+                stack_push(a < b ? 1 : 0);
+                pc++;
+                break;
+            }
+            case OP_GT: {
+                int b = stack_pop();
+                int a = stack_pop();
+                stack_push(a > b ? 1 : 0);
+                pc++;
+                break;
+            }
+            case OP_EQ: {
+                int b = stack_pop();
+                int a = stack_pop();
+                stack_push(a == b ? 1 : 0);
+                pc++;
+                break;
+            }
+            case OP_JMP: {
+                int id = in.arg;
+                if (id < 0 || id >= MAX_LABELS || label_addr[id] < 0) {
+                    fprintf(stderr, "Label invalido em JMP: %d\n", id);
+                    exit(1);
+                }
+                pc = label_addr[id];
+                break;
+            }
+            case OP_JZ: {
+                int v = stack_pop();
+                if (v == 0) {
+                    int id = in.arg;
+                    if (id < 0 || id >= MAX_LABELS || label_addr[id] < 0) {
+                        fprintf(stderr, "Label invalido em JZ: %d\n", id);
+                        exit(1);
+                    }
+                    pc = label_addr[id];
+                } else {
+                    pc++;
+                }
+                break;
+            }
+            case OP_JNZ: {
+                int v = stack_pop();
+                if (v != 0) {
+                    int id = in.arg;
+                    if (id < 0 || id >= MAX_LABELS || label_addr[id] < 0) {
+                        fprintf(stderr, "Label invalido em JNZ: %d\n", id);
+                        exit(1);
+                    }
+                    pc = label_addr[id];
+                } else {
+                    pc++;
+                }
+                break;
+            }
+            case OP_UP: {
+                int v = stack_pop();
+                altitude += v;
+                bateria -= (v > 0 ? 1 : 0);
+                printf("DRONE: subir %d -> altitude=%d bateria=%d\n", v, altitude, bateria);
+                pc++;
+                break;
+            }
+            case OP_DOWN: {
+                int v = stack_pop();
+                altitude -= v;
+                if (altitude < 0) altitude = 0;
+                bateria -= (v > 0 ? 1 : 0);
+                printf("DRONE: descer %d -> altitude=%d bateria=%d\n", v, altitude, bateria);
+                pc++;
+                break;
+            }
+            case OP_FWD: {
+                int v = stack_pop();
+                pos_y += v;
+                bateria -= (v > 0 ? 1 : 0);
+                printf("DRONE: frente %d -> pos=(%d,%d) bateria=%d\n", v, pos_x, pos_y, bateria);
+                pc++;
+                break;
+            }
+            case OP_BACK: {
+                int v = stack_pop();
+                pos_y -= v;
+                bateria -= (v > 0 ? 1 : 0);
+                printf("DRONE: tras %d -> pos=(%d,%d) bateria=%d\n", v, pos_x, pos_y, bateria);
+                pc++;
+                break;
+            }
+            case OP_TURN: {
+                int v = stack_pop();
+                reg0 = (reg0 + v) % 360;
+                bateria -= (v != 0 ? 1 : 0);
+                printf("DRONE: girar %d -> angulo=%d bateria=%d\n", v, reg0, bateria);
+                pc++;
+                break;
+            }
+            case OP_LAND: {
+                altitude = 0;
+                printf("DRONE: pousar -> altitude=%d bateria=%d\n", altitude, bateria);
+                pc++;
+                break;
+            }
+            case OP_SENSE_ALT: {
+                stack_push(altitude);
+                pc++;
+                break;
+            }
+            case OP_SENSE_BAT: {
+                stack_push(bateria);
+                pc++;
+                break;
+            }
+            case OP_LABEL: {
+                pc++;
+                break;
+            }
+            case OP_HALT: {
+                printf("HALT: estado final -> altitude=%d pos=(%d,%d) bateria=%d reg0=%d reg1=%d\n",
+                       altitude, pos_x, pos_y, bateria, reg0, reg1);
+                return;
+            }
+            default: {
+                fprintf(stderr, "Opcode invalido em pc=%d\n", pc);
+                exit(1);
+            }
+        }
+    }
+}
 
-    int altitude = 0;
-    int bateria = 100;
-    int x = 0;
-    int y = 0;
-    int angulo = 0;
-
+int main(int argc, char **argv) {
+    const char *fname = "program.dvm";
     if (argc > 1) {
-        arquivo = argv[1];
+        fname = argv[1];
     }
 
-    prog_tam = carrega_programa(arquivo, prog, MAX_PROG);
-    if (prog_tam <= 0) {
-        fprintf(stderr, "programa vazio ou invalido\n");
+    FILE *f = fopen(fname, "r");
+    if (!f) {
+        perror("Erro ao abrir arquivo de programa");
         return 1;
     }
 
-    for (i = 0; i < MAX_MEM; i++) {
-        mem[i] = 0;
-    }
+    load_program(f);
+    fclose(f);
 
-    while (rodando) {
-        struct Instrucao inst;
-
-        if (pc < 0 || pc >= prog_tam) {
-            break;
-        }
-
-        inst = prog[pc];
-        imprime_estado(pc, r0, r1, altitude, bateria, x, y, angulo);
-
-        switch (inst.op) {
-        case OP_NOP:
-            pc++;
-            break;
-
-        case OP_HALT:
-            rodando = 0;
-            break;
-
-        case OP_LOADI:
-            if (inst.a == 0) {
-                r0 = inst.b;
-            } else if (inst.a == 1) {
-                r1 = inst.b;
-            }
-            pc++;
-            break;
-
-        case OP_LOAD:
-            if (inst.b >= 0 && inst.b < MAX_MEM) {
-                if (inst.a == 0) {
-                    r0 = mem[inst.b];
-                } else if (inst.a == 1) {
-                    r1 = mem[inst.b];
-                }
-            }
-            pc++;
-            break;
-
-        case OP_STORE:
-            if (inst.b >= 0 && inst.b < MAX_MEM) {
-                if (inst.a == 0) {
-                    mem[inst.b] = r0;
-                } else if (inst.a == 1) {
-                    mem[inst.b] = r1;
-                }
-            }
-            pc++;
-            break;
-
-        case OP_ADD:
-            if (inst.a == 0) {
-                r0 += inst.b;
-            } else if (inst.a == 1) {
-                r1 += inst.b;
-            }
-            pc++;
-            break;
-
-        case OP_SUB:
-            if (inst.a == 0) {
-                r0 -= inst.b;
-            } else if (inst.a == 1) {
-                r1 -= inst.b;
-            }
-            pc++;
-            break;
-
-        case OP_JMP:
-            pc = inst.a;
-            break;
-
-        case OP_JZ: {
-            int valor = 0;
-            if (inst.a == 0) {
-                valor = r0;
-            } else if (inst.a == 1) {
-                valor = r1;
-            }
-            if (valor == 0) {
-                pc = inst.b;
-            } else {
-                pc++;
-            }
-            break;
-        }
-
-        case OP_ASC:
-            altitude += inst.a;
-            if (inst.a > 0) {
-                bateria -= inst.a / 10;
-                if (bateria < 0) {
-                    bateria = 0;
-                }
-            }
-            pc++;
-            break;
-
-        case OP_DESC:
-            altitude -= inst.a;
-            if (altitude < 0) {
-                altitude = 0;
-            }
-            pc++;
-            break;
-
-        case OP_FWD:
-            x += inst.a;
-            pc++;
-            break;
-
-        case OP_BACK:
-            x -= inst.a;
-            pc++;
-            break;
-
-        case OP_ROT:
-            angulo += inst.a;
-            angulo %= 360;
-            if (angulo < 0) {
-                angulo += 360;
-            }
-            pc++;
-            break;
-
-        case OP_LAND:
-            altitude = 0;
-            pc++;
-            break;
-
-        case OP_READ_BAT:
-            if (inst.a == 0) {
-                r0 = bateria;
-            } else if (inst.a == 1) {
-                r1 = bateria;
-            }
-            pc++;
-            break;
-
-        case OP_READ_ALT:
-            if (inst.a == 0) {
-                r0 = altitude;
-            } else if (inst.a == 1) {
-                r1 = altitude;
-            }
-            pc++;
-            break;
-
-        default:
-            rodando = 0;
-            break;
-        }
-    }
-
-    imprime_estado(pc, r0, r1, altitude, bateria, x, y, angulo);
+    exec_program();
     return 0;
 }

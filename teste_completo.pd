@@ -1,0 +1,13 @@
+var alvo_altura = 50;
+var passos = 10;
+
+while (altitude < alvo_altura) {
+    subir(passos);
+    passos = passos + 5;
+}
+
+if (bateria > 80) {
+    frente(20);
+}
+
+pousar();

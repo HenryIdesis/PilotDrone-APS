@@ -1,0 +1,12 @@
+# binários
+drone
+vm
+
+# arquivos gerados por flex/bison
+lex.yy.c
+parser.tab.c
+parser.tab.h
+
+# outros gerados
+program.dvm
+*.o

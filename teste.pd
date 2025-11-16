@@ -1,3 +1,8 @@
-subir(10);
-girar(90);
+var passo = 10;
+var altura_final;
+
+altura_final = 20 + 30;
+
+frente(passo);
+subir(altura_final);
 pousar();
